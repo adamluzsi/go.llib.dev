@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Go Module Redirect for llib.dev</title>
+  <link rel="stylesheet" href="https://unpkg.com/purecss@2.1.0/build/pure-min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    header {
+      background-color: #f1f1f1;
+      padding: 10px;
+      text-align: center;
+    }
+    main {
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="pure-g">
+    <div class="pure-u-1">
+      <h1>Go Module Redirect for llib.dev</h1>
+    </div>
+  </header>
+
+  <main class="pure-g">
+    <div class="pure-u-1">
+      <p>This site helps you use the custom import path <code>llib.dev</code> for your Go packages.</p>
+      
+      <h2>How to Use</h2>
+      <p>When coding in Go, import your package like this:</p>
+      <pre><code>import "llib.dev/your-package-name"</code></pre>
+
+      <h2>Example</h2>
+      <p>To download a package called <code>example</code>, use this command:</p>
+      <pre><code>go get llib.dev/example</code></pre>
+      
+      <h2>What's Happening Behind the Scenes?</h2>
+      <p>This site has special HTML files with code that tells the Go tool where to find the actual code for your package. So when you use <code>go get</code>, it knows where to look.</p>
+
+      <h2>Contact</h2>
+      <p>For more details, check the <a href="https://github.com/adamluzsi/go-redirect" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
+    </div>
+  </main>
+
+</body>
+</html>
+
