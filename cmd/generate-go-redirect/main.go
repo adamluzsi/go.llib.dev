@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -95,7 +96,11 @@ func getProjects() ([]string, error) {
 	projects = []string{}
 
 	for scanner.Scan() {
-		projects = append(projects, scanner.Text())
+		project := strings.TrimSpace(scanner.Text())
+		if project == "" {
+			continue
+		}
+		projects = append(projects, project)
 	}
 
 	// Check for errors during scanning
