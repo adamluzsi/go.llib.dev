@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -24,7 +25,7 @@ func main() {
 	}
 }
 
-func generateProjectRedirects(projects []string) error {
+func generateProjectRedirects(projects []Project) error {
 	const outDirEnvKey = "WEB_DIR_PATH"
 
 	outDirPath, ok := os.LookupEnv(outDirEnvKey)
@@ -40,11 +41,14 @@ func generateProjectRedirects(projects []string) error {
 	for _, project := range projects {
 		var (
 			buf     bytes.Buffer
-			dirPath = filepath.Join(outDirPath, project)
+			dirPath = filepath.Join(outDirPath, project.PackageName)
 			outPath = filepath.Join(dirPath, "index.html")
 		)
 
-		if err := tmpl.Execute(&buf, RedirectTemplateData{Project: project}); err != nil {
+		if err := tmpl.Execute(&buf, RedirectTemplateData{
+			PackageName: project.PackageName,
+			GHRepoName:  project.getRepoName(),
+		}); err != nil {
 			return fmt.Errorf("redirect template execution failed: %w", err)
 		}
 		if err := ensureDirectory(dirPath); err != nil {
@@ -69,10 +73,25 @@ func getRedirectTemplate() (*template.Template, error) {
 }
 
 type RedirectTemplateData struct {
-	Project string
+	PackageName string
+	GHRepoName  string
 }
 
-func getProjects() ([]string, error) {
+var spaceRGX = regexp.MustCompile(`\s+`)
+
+type Project struct {
+	PackageName string
+	RepoName    string
+}
+
+func (p Project) getRepoName() string {
+	if p.RepoName == "" {
+		return p.PackageName
+	}
+	return p.RepoName
+}
+
+func getProjects() ([]Project, error) {
 	// Read environment variable
 	filePath, ok := os.LookupEnv("PROJECTS_FILE_PATH")
 	if !ok {
@@ -92,15 +111,30 @@ func getProjects() ([]string, error) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 
-	var projects []string
-	projects = []string{}
+	var projects []Project
+
+	var get = func(e []string, i int) string {
+		if i < len(e) {
+			return e[i]
+		}
+		return ""
+	}
 
 	for scanner.Scan() {
-		project := strings.TrimSpace(scanner.Text())
-		if project == "" {
+		raw := strings.TrimSpace(scanner.Text())
+		if raw == "" {
 			continue
 		}
-		projects = append(projects, project)
+
+		parts := spaceRGX.Split(raw, -1)
+		if n := len(parts); n == 0 || 2 < n {
+			return nil, fmt.Errorf("project value is not interpretable: %s", raw)
+		}
+
+		projects = append(projects, Project{
+			PackageName: get(parts, 0),
+			RepoName:    get(parts, 1),
+		})
 	}
 
 	// Check for errors during scanning
