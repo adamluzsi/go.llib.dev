@@ -23,7 +23,7 @@ func main() {
 }
 
 func generateProjectRedirects(projects []string) error {
-	const outDirEnvKey = "PROJECT_REDIRECT_DIR"
+	const outDirEnvKey = "WEB_DIR_PATH"
 
 	outDirPath, ok := os.LookupEnv(outDirEnvKey)
 	if !ok {
@@ -36,17 +36,22 @@ func generateProjectRedirects(projects []string) error {
 	}
 
 	for _, project := range projects {
-		var buf bytes.Buffer
+		var (
+			buf     bytes.Buffer
+			dirPath = filepath.Join(outDirPath, project)
+			outPath = filepath.Join(dirPath, "index.html")
+		)
+
 		if err := tmpl.Execute(&buf, RedirectTemplateData{Project: project}); err != nil {
 			return fmt.Errorf("redirect template execution failed: %w", err)
 		}
-		if err := os.WriteFile(
-			filepath.Join(outDirPath, project)+".html",
-			buf.Bytes(),
-			0644,
-		); err != nil {
+		if err := ensureDirectory(dirPath); err != nil {
+			return err
+		}
+		if err := os.WriteFile(outPath, buf.Bytes(), 0644); err != nil {
 			return fmt.Errorf("writing out html failed: %w", err)
 		}
+
 		log.Println("INFO", fmt.Sprintf("%s redirect is created", project))
 	}
 
@@ -99,4 +104,15 @@ func getProjects() ([]string, error) {
 	}
 
 	return projects, nil
+}
+
+// ensureDirectory attempts to create a directory at the specified path.
+// It returns nil if the directory was created successfully or already exists,
+// and an error if any occurred.
+func ensureDirectory(path string) error {
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
 }
