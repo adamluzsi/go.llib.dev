@@ -1,0 +1,5 @@
+openai; git https://github.com/adamluzsi/openai-go
+testcase;  git https://github.com/adamluzsi/testcase
+frameless;  git https://github.com/adamluzsi/frameless
+otelkit;  git https://github.com/adamluzsi/otelkit
+markdown-inliner; git https://github.com/adamluzsi/markdown-inliner

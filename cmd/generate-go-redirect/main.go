@@ -10,22 +10,21 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
 func main() {
-	projects, err := getProjects()
+	imports, err := getImports()
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 
-	if err := generateProjectRedirects(projects); err != nil {
+	if err := generateProjectRedirects(imports); err != nil {
 		log.Fatalln(err.Error())
 	}
 }
 
-func generateProjectRedirects(projects []Project) error {
+func generateProjectRedirects(projects []Import) error {
 	const outDirEnvKey = "WEB_DIR_PATH"
 
 	outDirPath, ok := os.LookupEnv(outDirEnvKey)
@@ -41,13 +40,13 @@ func generateProjectRedirects(projects []Project) error {
 	for _, project := range projects {
 		var (
 			buf     bytes.Buffer
-			dirPath = filepath.Join(outDirPath, project.PackageName)
+			dirPath = filepath.Join(outDirPath, project.Name)
 			outPath = filepath.Join(dirPath, "index.html")
 		)
 
 		if err := tmpl.Execute(&buf, RedirectTemplateData{
-			PackageName: project.PackageName,
-			GHRepoName:  project.getRepoName(),
+			PackageName: project.Name,
+			ImportDef:   project.Import,
 		}); err != nil {
 			return fmt.Errorf("redirect template execution failed: %w", err)
 		}
@@ -74,36 +73,28 @@ func getRedirectTemplate() (*template.Template, error) {
 
 type RedirectTemplateData struct {
 	PackageName string
-	GHRepoName  string
+	ImportDef   string
 }
 
-var spaceRGX = regexp.MustCompile(`\s+`)
-
-type Project struct {
-	PackageName string
-	RepoName    string
+type Import struct {
+	Name   string
+	Import string
 }
 
-func (p Project) getRepoName() string {
-	if p.RepoName == "" {
-		return p.PackageName
-	}
-	return p.RepoName
-}
-
-func getProjects() ([]Project, error) {
+func getImports() ([]Import, error) {
+	const envKey = "IMPORTS_FILE_PATH"
 	// Read environment variable
-	filePath, ok := os.LookupEnv("PROJECTS_FILE_PATH")
+	filePath, ok := os.LookupEnv(envKey)
 	if !ok {
 		return nil,
-			fmt.Errorf("PROJECTS_FILE_PATH environment variable is not set")
+			fmt.Errorf("%s environment variable is not set", envKey)
 	}
 
 	// Open the file
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil,
-			fmt.Errorf("failed to open projects file: %w", err)
+			fmt.Errorf("failed to open imports file: %w", err)
 	}
 	defer file.Close()
 
@@ -111,7 +102,7 @@ func getProjects() ([]Project, error) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 
-	var projects []Project
+	var projects []Import
 
 	var get = func(e []string, i int) string {
 		if i < len(e) {
@@ -126,14 +117,18 @@ func getProjects() ([]Project, error) {
 			continue
 		}
 
-		parts := spaceRGX.Split(raw, -1)
+		parts := strings.Split(raw, ";")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+
 		if n := len(parts); n == 0 || 2 < n {
 			return nil, fmt.Errorf("project value is not interpretable: %s", raw)
 		}
 
-		projects = append(projects, Project{
-			PackageName: get(parts, 0),
-			RepoName:    get(parts, 1),
+		projects = append(projects, Import{
+			Name:   get(parts, 0),
+			Import: get(parts, 1),
 		})
 	}
 
