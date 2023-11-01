@@ -3,5 +3,7 @@
 <head>
     <meta name="go-import" content="go.llib.dev/{{ .PackageName }} {{ .ImportDef }}">
 </head>
-<body></body>
+<body>
+{{ if .URL }}<script>location.replace({{.URL}})</script>{{ end }}
+</body>
 </html>

@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -47,6 +48,7 @@ func generateProjectRedirects(projects []Import) error {
 		if err := tmpl.Execute(&buf, RedirectTemplateData{
 			PackageName: project.Name,
 			ImportDef:   project.Import,
+			URL:         project.URL,
 		}); err != nil {
 			return fmt.Errorf("redirect template execution failed: %w", err)
 		}
@@ -74,12 +76,16 @@ func getRedirectTemplate() (*template.Template, error) {
 type RedirectTemplateData struct {
 	PackageName string
 	ImportDef   string
+	URL         string
 }
 
 type Import struct {
 	Name   string
 	Import string
+	URL    string
 }
+
+var findURL = regexp.MustCompile(`https?://[^\s+]+`)
 
 func getImports() ([]Import, error) {
 	const envKey = "IMPORTS_FILE_PATH"
@@ -129,6 +135,7 @@ func getImports() ([]Import, error) {
 		projects = append(projects, Import{
 			Name:   get(parts, 0),
 			Import: get(parts, 1),
+			URL:    findURL.FindString(raw),
 		})
 	}
 
