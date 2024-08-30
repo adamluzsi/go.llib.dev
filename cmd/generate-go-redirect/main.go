@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"go.llib.dev/frameless/pkg/pathkit"
 )
 
 func main() {
@@ -132,11 +134,30 @@ func getImports() ([]Import, error) {
 			return nil, fmt.Errorf("project value is not interpretable: %s", raw)
 		}
 
-		projects = append(projects, Import{
+		ImportRef := get(parts, 1)
+		projectURL := findURL.FindString(raw)
+
+		baseURL, path := pathkit.SplitBase(projectURL)
+		pathParts := pathkit.Split(path)
+		if strings.Contains(baseURL, "github.com") && 2 < len(pathParts) {
+			projectPath := pathkit.Join(pathParts[0:2]...)
+			modifiedPath := pathkit.Join(
+				projectPath,
+				"tree", "main",
+				pathkit.Join(pathParts[2:]...),
+			)
+			pathParts = pathkit.Split(modifiedPath)
+			ImportRef = strings.Replace(ImportRef, projectURL, pathkit.Join(baseURL, projectPath), 1)
+			projectURL = pathkit.Join(baseURL, pathkit.Join(pathParts...))
+		}
+
+		imp := Import{
 			Name:   get(parts, 0),
-			Import: get(parts, 1),
-			URL:    findURL.FindString(raw),
-		})
+			Import: ImportRef,
+			URL:    projectURL,
+		}
+
+		projects = append(projects, imp)
 	}
 
 	// Check for errors during scanning
