@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -eE
+
+: ${pkg:="${1}"}
+
+if [ -z ${pkg:-} ]; then
+    echo 'missing "pkg" env variable' 1>&2
+    exit 1
+fi
+
+declare outname="index.html"
+if [ -e "${outname}" ]; then
+    rm "${outname}"
+fi
+
+wget "https://${pkg}?go-get=1" -O "${outname}"
+cat "${outname}"
+echo
+

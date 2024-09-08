@@ -2,56 +2,81 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
-	"go.llib.dev/frameless/pkg/pathkit"
+	"go.llib.dev/frameless/pkg/env"
+	"go.llib.dev/frameless/pkg/logger"
+	"go.llib.dev/frameless/pkg/logging"
+	"go.llib.dev/frameless/pkg/zerokit"
 )
 
 func main() {
-	imports, err := getImports()
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-
-	if err := generateProjectRedirects(imports); err != nil {
-		log.Fatalln(err.Error())
+	ctx := context.Background()
+	if err := Main(ctx); err != nil {
+		logger.Fatal(ctx, "error in main", logging.ErrField(err))
+		os.Exit(1)
 	}
 }
 
-func generateProjectRedirects(projects []Import) error {
+func Main(ctx context.Context) error {
+	metas, err := getMetas()
+	if err != nil {
+		return fmt.Errorf("get import meta data failed: %w", err)
+	}
+	if err := generateProjectRedirects(metas); err != nil {
+		return fmt.Errorf("generate project redirects have failed: %w", err)
+	}
+	return nil
+}
+
+func generateProjectRedirects(metas []Meta) error {
 	const outDirEnvKey = "WEB_DIR_PATH"
+
+	domain, found, err := env.Lookup[string]("DOMAIN")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("missing DOMAIN env variable")
+	}
 
 	outDirPath, ok := os.LookupEnv(outDirEnvKey)
 	if !ok {
 		return fmt.Errorf("%s env variable not set", outDirEnvKey)
 	}
 
-	tmpl, err := getRedirectTemplate()
+	tmpl, err := getImportTemplate()
 	if err != nil {
 		return fmt.Errorf("getRedirectTemplate failed: %w", err)
 	}
 
-	for _, project := range projects {
+	if err := os.WriteFile(filepath.Join(outDirPath, "CNAME"), []byte(domain), 0666); err != nil {
+		return err
+	}
+
+	for _, meta := range metas {
+		if !strings.Contains(meta.Import.Prefix, domain) {
+			continue
+		}
+
 		var (
 			buf     bytes.Buffer
-			dirPath = filepath.Join(outDirPath, project.Name)
+			dirPath = filepath.Join(outDirPath, strings.TrimPrefix(meta.Import.Prefix, domain+"/"))
 			outPath = filepath.Join(dirPath, "index.html")
 		)
 
-		if err := tmpl.Execute(&buf, RedirectTemplateData{
-			PackageName: project.Name,
-			ImportDef:   project.Import,
-			URL:         project.URL,
-		}); err != nil {
+		if err := tmpl.Execute(&buf, meta); err != nil {
 			return fmt.Errorf("redirect template execution failed: %w", err)
 		}
 		if err := ensureDirectory(dirPath); err != nil {
@@ -61,35 +86,66 @@ func generateProjectRedirects(projects []Import) error {
 			return fmt.Errorf("writing out html failed: %w", err)
 		}
 
-		log.Println("INFO", fmt.Sprintf("%s redirect is created", project))
+		log.Println("INFO", fmt.Sprintf("%s redirect is created", meta))
 	}
 
 	return nil
 }
 
-//go:embed redirect.html
-var redirectRaw string
+//go:embed go-import.html
+var goImportHTML string
 
-// getRedirectTemplate is the Go import redirect template
-func getRedirectTemplate() (*template.Template, error) {
-	return template.New("go-redirect").Parse(redirectRaw)
+// getImportTemplate is the Go import redirect template
+func getImportTemplate() (*template.Template, error) {
+	return template.New("go-redirect").Parse(goImportHTML)
 }
 
-type RedirectTemplateData struct {
-	PackageName string
-	ImportDef   string
-	URL         string
+type Meta struct {
+	Import MetaImport
+	Source MetaSource
 }
 
-type Import struct {
-	Name   string
-	Import string
-	URL    string
+type MetaImport struct {
+	Prefix string
+	VCS    MetaImportVCS
 }
 
-var findURL = regexp.MustCompile(`https?://[^\s+]+`)
+type MetaImportVCS struct {
+	Name     string `enum:"git,"`
+	RepoRoot *url.URL
+}
 
-func getImports() ([]Import, error) {
+// MetaSource
+//
+// {dir} - The import path with prefix and leading "/" trimmed.
+// {/dir} - If {dir} is not the empty string, then {/dir} is replaced by "/" +
+// {dir}. Otherwise, {/dir} is replaced with the empty string.
+//
+// {file} - The name of the file
+// {line} - The decimal line number.
+type MetaSource struct {
+	// HomepageURL is the home URL that the source uses
+	//
+	// default: _
+	HomepageURL string
+	// Directory is the directory pattern it should use
+	DirectoryPattern string
+	// File is the file pattern that the go import should use
+	FilePattern string
+}
+
+// var findURL = regexp.MustCompile(`https?://[^\s+]+`)
+
+func getMetas() ([]Meta, error) {
+	type JSONDTO struct {
+		VCS              string `json:"vcs"`
+		ImportPrefix     string `json:"import-prefix"`
+		RootRepo         string `json:"root-repo"`
+		HomepageURL      string `json:"homepage"`
+		DirectoryPattern string `json:"directory-pattern"`
+		FilePattern      string `json:"file-pattern"`
+	}
+
 	const envKey = "IMPORTS_FILE_PATH"
 	// Read environment variable
 	filePath, ok := os.LookupEnv(envKey)
@@ -107,66 +163,59 @@ func getImports() ([]Import, error) {
 	defer file.Close()
 
 	// Create a new scanner and read the file line by line
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
 
-	var projects []Import
-
-	var get = func(e []string, i int) string {
-		if i < len(e) {
-			return e[i]
-		}
-		return ""
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
 	}
 
-	for scanner.Scan() {
-		raw := strings.TrimSpace(scanner.Text())
-		if raw == "" {
-			continue
-		}
+	var metas []Meta
 
-		parts := strings.Split(raw, ";")
-		for i := range parts {
-			parts[i] = strings.TrimSpace(parts[i])
-		}
-
-		if n := len(parts); n == 0 || 2 < n {
-			return nil, fmt.Errorf("project value is not interpretable: %s", raw)
-		}
-
-		ImportRef := get(parts, 1)
-		projectURL := findURL.FindString(raw)
-
-		baseURL, path := pathkit.SplitBase(projectURL)
-		pathParts := pathkit.Split(path)
-		if strings.Contains(baseURL, "github.com") && 2 < len(pathParts) {
-			projectPath := pathkit.Join(pathParts[0:2]...)
-			modifiedPath := pathkit.Join(
-				projectPath,
-				"tree", "main",
-				pathkit.Join(pathParts[2:]...),
-			)
-			pathParts = pathkit.Split(modifiedPath)
-			ImportRef = strings.Replace(ImportRef, projectURL, pathkit.Join(baseURL, projectPath), 1)
-			projectURL = pathkit.Join(baseURL, pathkit.Join(pathParts...))
-		}
-
-		imp := Import{
-			Name:   get(parts, 0),
-			Import: ImportRef,
-			URL:    projectURL,
-		}
-
-		projects = append(projects, imp)
+	var dtos []JSONDTO
+	if err := json.Unmarshal(data, &dtos); err != nil {
+		return nil, err
 	}
 
-	// Check for errors during scanning
-	if err := scanner.Err(); err != nil {
-		return nil,
-			fmt.Errorf("failed to read file: %w", err)
+	for _, dto := range dtos {
+		vcsRepoRoot, err := url.Parse(dto.RootRepo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vcs repo root: %w", err)
+		}
+
+		imp := MetaImport{
+			Prefix: dto.ImportPrefix,
+			VCS: MetaImportVCS{
+				Name:     dto.VCS,
+				RepoRoot: vcsRepoRoot,
+			},
+		}
+
+		src := MetaSource{
+			HomepageURL:      dto.HomepageURL,
+			DirectoryPattern: dto.DirectoryPattern,
+			FilePattern:      dto.FilePattern,
+		}
+
+		if src.HomepageURL == "" {
+			src.HomepageURL = imp.VCS.RepoRoot.String()
+		}
+
+		if strings.Contains(imp.VCS.RepoRoot.Host, "github.com") {
+			if zerokit.IsZero(src.DirectoryPattern) {
+				src.DirectoryPattern = fmt.Sprintf("%s/tree/master{/dir}", imp.VCS.RepoRoot.String())
+			}
+			if zerokit.IsZero(src.FilePattern) {
+				src.FilePattern = fmt.Sprintf("%s/{file}#L{line}", src.DirectoryPattern)
+			}
+		}
+
+		metas = append(metas, Meta{
+			Import: imp,
+			Source: src,
+		})
 	}
 
-	return projects, nil
+	return metas, nil
 }
 
 // ensureDirectory attempts to create a directory at the specified path.

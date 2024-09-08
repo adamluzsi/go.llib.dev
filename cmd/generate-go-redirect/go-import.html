@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="go-import" content="{{ .Import.Prefix }} {{ .Import.VCS.Name }} {{ .Import.VCS.RepoRoot }}">
+    <meta name="go-source" content="{{ .Import.Prefix }} {{ .Source.HomepageURL }} {{ .Source.DirectoryPattern }} {{ .Source.FilePattern }}">
+</head>
+<body>
+{{ if .Source.HomepageURL }}<script>location.replace({{ .Source.HomepageURL }})</script>{{ end }}
+</body>
+</html>

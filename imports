@@ -1,7 +1,0 @@
-testcase;  git https://github.com/adamluzsi/testcase
-frameless;  git https://github.com/adamluzsi/frameless
-frameless/adapter/mysql;  git https://github.com/adamluzsi/frameless/adapter/mysql
-frameless/adapter/postgresql;  git https://github.com/adamluzsi/frameless/adapter/postgresql
-openai; git https://github.com/adamluzsi/openai-go
-otelkit;  git https://github.com/adamluzsi/otelkit
-markdown-inliner; git https://github.com/adamluzsi/markdown-inliner
