@@ -21,6 +21,11 @@
     },
     {
       "vcs": "git",
+      "import-prefix": "go.llib.dev/frameless/adapter/mariadb",
+      "root-repo": "https://github.com/adamluzsi/frameless-adapter-mariadb"
+    },
+    {
+      "vcs": "git",
       "import-prefix": "go.llib.dev/openai",
       "root-repo": "https://github.com/adamluzsi/openai-go"
     },
@@ -34,4 +39,4 @@
       "import-prefix": "go.llib.dev/markdown-inliner",
       "root-repo": "https://github.com/adamluzsi/markdown-inliner"
     }
-  ]
+]
