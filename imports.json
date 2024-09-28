@@ -17,7 +17,7 @@
     {
       "vcs": "git",
       "import-prefix": "go.llib.dev/frameless/adapter/postgresql",
-      "root-repo": "https://github.com/adamluzsi/frameless/adapter/postgresql"
+      "root-repo": "https://github.com/adamluzsi/frameless-adapter-postgresql"
     },
     {
       "vcs": "git",
