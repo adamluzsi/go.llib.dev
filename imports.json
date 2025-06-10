@@ -1,42 +1,36 @@
 [
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/testcase",
-      "root-repo": "https://github.com/adamluzsi/testcase"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/frameless",
-      "root-repo": "https://github.com/adamluzsi/frameless"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/frameless/adapter/mysql",
-      "root-repo": "https://github.com/adamluzsi/frameless-adapter-mysql"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/frameless/adapter/postgresql",
-      "root-repo": "https://github.com/adamluzsi/frameless-adapter-postgresql"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/frameless/adapter/mariadb",
-      "root-repo": "https://github.com/adamluzsi/frameless-adapter-mariadb"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/openai",
-      "root-repo": "https://github.com/adamluzsi/openai-go"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/otelkit",
-      "root-repo": "https://github.com/adamluzsi/otelkit"
-    },
-    {
-      "vcs": "git",
-      "import-prefix": "go.llib.dev/markdown-inliner",
-      "root-repo": "https://github.com/adamluzsi/markdown-inliner"
-    }
+  {
+    "vcs": "git",
+    "import-prefix": "go.llib.dev/testcase",
+    "root-repo": "https://github.com/adamluzsi/testcase"
+  },
+  {
+    "vcs": "git",
+    "import-prefix": "go.llib.dev/frameless",
+    "root-repo": "https://github.com/adamluzsi/frameless",
+    "submodules": [
+      "adapter/postgresql",
+      "adapter/mariadb"
+    ]
+  },
+  {
+    "vcs": "git",
+    "import-prefix": "go.llib.dev/frameless/adapter/mysql",
+    "root-repo": "https://github.com/adamluzsi/frameless-adapter-mysql"
+  },
+  {
+    "vcs": "git",
+    "import-prefix": "go.llib.dev/openai",
+    "root-repo": "https://github.com/adamluzsi/openai-go"
+  },
+  {
+    "vcs": "git",
+    "import-prefix": "go.llib.dev/otelkit",
+    "root-repo": "https://github.com/adamluzsi/otelkit"
+  },
+  {
+    "vcs": "git",
+    "import-prefix": "go.llib.dev/markdown-inliner",
+    "root-repo": "https://github.com/adamluzsi/markdown-inliner"
+  }
 ]
